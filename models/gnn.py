@@ -99,18 +99,25 @@ testdaset = MicroservicesDataset(root='E:\Masters_degree\project code\Microservi
 print("dataset done ----------------------------------------------")
 
 class GNN(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, edge_attr_dim):
         super(GNN, self).__init__()
-        # Update the in_channels from 10 to 14
-        self.conv1 = GCNConv(in_channels=14, out_channels=16)  # Now expects 14 features as input
+
+        # Define GCN layers (same as your original setup)
+        self.conv1 = GCNConv(in_channels, 16)
         self.conv2 = GCNConv(16, out_channels)
 
-    def forward(self, x, edge_index, edge_attr):
-        x = F.relu(self.conv1(x, edge_index))
-        x = F.dropout(x, training=self.training)
-        x = self.conv2(x, edge_index)
-        return x
+        # Edge feature transformation (for GCNConv)
+        self.edge_fc = torch.nn.Linear(edge_attr_dim, 16)
 
+    def forward(self, x, edge_index, edge_attr):
+        # Transform edge_attr
+        edge_attr_transformed = self.edge_fc(edge_attr)
+
+        # Combine edge_attr with node features before passing through GCNConv
+        x = F.relu(self.conv1(x, edge_index, edge_attr_transformed))  # Pass edge_attr to conv1
+        x = F.dropout(x, training=self.training)
+        x = self.conv2(x, edge_index, edge_attr_transformed)  # Pass edge_attr to conv2
+        return x
 
 
 
@@ -142,13 +149,14 @@ def feature_dropout(x, drop_prob=0.2):
 
 # Initialize model, optimizer, and loss function
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = GNN(10, 4).to(device)
+model = GNN(14, 4).to(device)
 model.apply(init_weights)
 #optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 
 # Prepare data loaders
 train_loader = DataLoader(dataset[:int(len(dataset) * 0.8)], batch_size=64, shuffle=True)
 val_loader = DataLoader(dataset[int(len(dataset) * 0.8):], batch_size=64, shuffle=False)
+val_loader = DataLoader(testdaset, batch_size=64, shuffle=False)
 test_loader = DataLoader(testdaset, batch_size=64, shuffle=False)
 y_train = []
 for data in train_loader:
@@ -158,7 +166,7 @@ y_train = data.y.cpu().numpy()
 y_train_flat = np.argmax(y_train, axis=1) 
 class_weights = compute_class_weight('balanced', classes=[0, 1, 2, 3], y=y_train_flat)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-class_weights = 1. / torch.tensor([1.8620, 0.2787, 0.8974, 0.9619], dtype=torch.float32) #[0.01538021 0.09767975 0.03045193 0.02705859]
+class_weights = 1. / torch.tensor([1.8620, 0.2787, 0.8974, 0.9619*2], dtype=torch.float32) #[0.01538021 0.09767975 0.03045193 0.02705859]
 class_weights = class_weights / class_weights.sum() * 4  # Normalize to keep the same scale
 class_weights = class_weights.to(device)
 
@@ -290,11 +298,10 @@ def evaluate_model(loader, model):
     optimal_thresholds = calculate_optimal_thresholds(probabilities, labels)
     print(f"Optimal thresholds: {optimal_thresholds}")
 
-    # Apply the optimal thresholds to the raw probabilities
-    adjusted_preds = apply_thresholds(probabilities, optimal_thresholds)
-    
+
+
     # Now calculate metrics with the adjusted predictions
-    metrics = calculate_metrics_per_label(adjusted_preds, labels)
+    metrics = calculate_metrics_per_label(probabilities, optimal_thresholds , labels)
     return metrics
 
 def calculate_metrics(preds, labels, threshold= 0.149):
@@ -305,7 +312,7 @@ def calculate_metrics(preds, labels, threshold= 0.149):
     recall = recall_score(labels, preds, average='micro', zero_division=1)
     f1 = f1_score(labels, preds, average='micro', zero_division=1)
     roc_auc = roc_auc_score(labels, preds, average='micro')  # ROC AUC can be useful for imbalanced datasets
-
+    
     return {
         "accuracy": accuracy,
         "precision": precision,
@@ -314,14 +321,21 @@ def calculate_metrics(preds, labels, threshold= 0.149):
     }
 
 
-
-
 def optimize_threshold(preds, labels):
     precision, recall, thresholds = precision_recall_curve(labels.ravel(), preds.ravel())
     f1_scores = 2 * (precision * recall) / (precision + recall + 1e-6)  # avoid division by zero
     best_threshold = thresholds[np.argmax(f1_scores)]
     return best_threshold
 
+def adjust_threshold_for_precision(predictions, labels, target_label_index):
+    precision, recall, thresholds = precision_recall_curve(labels[:, target_label_index], predictions[:, target_label_index])
+    # Find the threshold that gives the highest precision while maintaining a reasonable recall
+    threshold_index = np.argmax(precision[recall > 0.5])  # assuming you want to keep recall above 50%
+    optimal_threshold = thresholds[threshold_index]
+    adjusted_predictions = (predictions[:, target_label_index] > optimal_threshold).astype(int)
+    return adjusted_predictions
+
+    
 def calculate_roc_auc(preds, labels):
     auc_scores = []
     for i in range(preds.shape[1]):
@@ -329,9 +343,13 @@ def calculate_roc_auc(preds, labels):
         auc_scores.append(auc)
     return np.mean(auc_scores)
 
-def calculate_metrics_per_label(preds, labels):
+def calculate_metrics_per_label(probabilities, optimal_thresholds , labels):
+        # Apply the optimal thresholds to the raw probabilities
+    
+    preds = apply_thresholds(probabilities, optimal_thresholds)
     metrics = {}
     for i in range(labels.shape[1]):
+        
         label_preds = preds[:, i]
         label_true = labels[:, i]
         accuracy = accuracy_score(label_true, label_preds)
@@ -369,7 +387,7 @@ def get_correct_predictions(predictions, labels, optimal_thresholds):
 #"""
 run_gnn()
 # Evaluate model
-#model.load_state_dict(torch.load('saved_models/gnn_model_74ddab15-d608-4033-bb8f-b3eafecf8a57.pth'))
+#model.load_state_dict(torch.load('saved_models/gnn_model_5bcef763-0f6f-4c33-9527-06bdf8885ab2.pth'))
 #preds, labels = get_predictions(val_loader , model)
 preds, labels, probabilities = get_predictions(val_loader, model)
 print(f"preds lenght : {len(preds)}")
@@ -404,253 +422,3 @@ test_metrics = evaluate_model(test_loader, model)
 for label, metrics in test_metrics.items():
     print(f"Metrics for {label}: {metrics}")#"""
 
-
-"""class GNN(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(GNN, self).__init__()
-        self.conv1 = GCNConv(in_channels, 16)
-        self.conv2 = GCNConv(16, out_channels)
-
-    def forward(self, x, edge_index, edge_attr):
-        # Use edge_attr for convolution
-        # If you have multiple edge attributes, you can try combining them (e.g., by averaging or concatenating)
-        # Let's just pass them through without any aggregation for now
-        edge_attr = edge_attr.mean(dim=1)  # Reduce 3D to 1D (e.g., average the edge features)
-        
-        # First convolution layer
-        x = F.relu(self.conv1(x, edge_index, edge_attr))  # Apply edge_attr
-        x = F.dropout(x, training=self.training)
-        
-        # Second convolution layer
-        x = self.conv2(x, edge_index, edge_attr)  # Apply edge_attr again
-        return x
-class GNN(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(GNN, self).__init__()
-        self.conv1 = GATConv(in_channels, 16, edge_dim=3)  # Use edge_dim to specify the dimensionality of edge_attr
-        self.conv2 = GATConv(16, out_channels, edge_dim=3)  # Same here
-
-    def forward(self, x, edge_index, edge_attr):
-        # Apply GATConv which inherently uses edge_attr
-        x = F.relu(self.conv1(x, edge_index, edge_attr))
-        
-        # Apply dropout for regularization
-        x = F.dropout(x, training=self.training)
-        
-        # Apply second GATConv layer
-        x = self.conv2(x, edge_index, edge_attr)
-        return x        
-        
-        class GNN(torch.nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(GNN, self).__init__()
-        self.conv1 = GATConv(in_channels, 16, edge_dim=3)  # Edge attributes included
-        self.conv2 = GATConv(16, out_channels, edge_dim=3)  # Edge attributes included
-
-    def forward(self, x, edge_index, edge_attr):
-        x = F.relu(self.conv1(x, edge_index, edge_attr))  # Attention mechanism applied to edge_attr
-        x = F.dropout(x, training=self.training)  # Dropout for regularization
-        x = self.conv2(x, edge_index, edge_attr)
-        return x
-        """
-"""def prepare_data_for_record(dataset, record_index):
-    # Extract the data for the specific record (graph)
-    graph = dataset[record_index]
-
-    # Prepare the node features (x), edge indices (edge_index), edge attributes (edge_attr), and labels (y)
-    x = graph.x  # Node features
-    edge_index = graph.edge_index  # Edge indices (shape: [2, num_edges])
-    edge_attr = graph.edge_attr if 'edge_attr' in graph else None  # Edge attributes (if available)
-    y = graph.y  # Ground truth labels
-
-    # Return the data as a Data object in PyTorch Geometric format
-    return Data(x=x, edge_index=edge_index, edge_attr=edge_attr, y=y)
-
-
-def filter_and_save_correct_data(test_data_path, model, optimal_thresholds, output_path):
-    correct_data = []
-    with open(test_data_path, 'r') as infile:
-        for idx, line in enumerate(infile):
-            # Prepare the data for the current record
-            data_for_record = prepare_data_for_record(dataset, idx)
-
-            # Get predictions for this specific record
-            model.eval()
-            with torch.no_grad():
-                logits = model(data_for_record.x, data_for_record.edge_index, data_for_record.batch)
-                probs = torch.sigmoid(logits)
-
-            # Apply the optimal thresholds
-            pred_labels = (probs > torch.tensor(optimal_thresholds).to(probs.device)).cpu().numpy()
-
-            # Check if all predictions are correct
-            if (pred_labels == data_for_record.y.cpu().numpy()).all():
-                correct_data.append(line)  # If prediction is correct, save the record
-
-    # Save the correct data to the output file
-    with open(output_path, 'w') as outfile:
-        outfile.writelines(correct_data)
-
-    print(f"Correct predictions saved to {output_path}")"""
-
-"""def aggregate_predictions(predictions, labels, optimal_thresholds):
-    correct_predictions = []
-
-    # Iterate over each graph in the dataset
-    idx = 0
-    while idx < len(labels):
-        # Get the number of nodes for this graph
-        num_nodes = len(labels[idx])  # Each graph has a variable number of nodes
-
-        # Get the node-level predictions and labels for the current graph
-        graph_predictions = predictions[idx:idx+num_nodes]
-        graph_labels = labels[idx:idx+num_nodes]
-
-        # Compare node-level predictions with the labels
-        # Check if all nodes in the graph are predicted correctly
-        correct = True
-        for i in range(graph_labels.shape[0]):
-            node_predictions = graph_predictions[i]
-            node_labels = graph_labels[i]
-
-            # Compare each node's prediction to the optimal threshold
-            for label_idx in range(len(optimal_thresholds)):
-                if (node_predictions[label_idx] > optimal_thresholds[label_idx]) != node_labels[label_idx]:
-                    correct = False
-                    break
-
-            if not correct:
-                break
-        
-        correct_predictions.append(correct)
-        
-        # Move to the next graph (skip the nodes of the current graph)
-        idx += num_nodes
-    
-    return correct_predictions
-
-def filter_and_save_correct_data(test_data_path, predictions, labels, optimal_thresholds, output_path):
-    correct_predictions = []  # This will store correct predictions at the graph level
-
-    # Start iterating over the test data and node-level predictions
-    with open(test_data_path, 'r') as infile, open(output_path, 'w') as outfile:
-        # Read the test dataset line by line (this is at the graph level)
-        for idx, line in enumerate(infile):
-            # Get the prediction and label for the current graph (indexed by `idx`)
-            graph_predictions = predictions[idx]
-            graph_labels = labels[idx]
-            
-            # Check if the entire graph's predictions are correct (i.e., all nodes are predicted correctly)
-            # Apply optimal thresholds to the predictions for this graph
-            correct_nodes = (graph_predictions > optimal_thresholds) == graph_labels
-            
-            # If all nodes are predicted correctly, add the graph to the correct predictions
-            if correct_nodes.all():  # Only save if all nodes are correct
-                outfile.write(line)  # Write the entire graph record to the output file
-                correct_predictions.append(True)  # Mark this graph as correctly predicted
-            else:
-                correct_predictions.append(False)  # Mark this graph as incorrectly predicted
-
-    print(f"Number of correctly predicted graphs: {len(correct_predictions)}")"""
-
-
-"""
-model.load_state_dict(torch.load('saved_models/gnn_model_74ddab15-d608-4033-bb8f-b3eafecf8a57.pth'))
-preds, labels , probabilities= get_predictions(test_loader , model)
-test_data_path = 'MicroservicesTestset/handgenerated1.jsonl'  # Path to your test data
-output_path = 'correct_data.jsonl'  # Path where you want to save correct data
-
-
-all_preds = []
-all_labels = []
-model.eval()
-with torch.no_grad():
-    for data in test_loader:
-        data = data.to(device)
-        logits = model(data.x, data.edge_index, data.batch)
-        probs = torch.sigmoid(logits)
-        all_preds.append(probs.cpu().numpy())  # Store predictions
-        all_labels.append(data.y.cpu().numpy())  # Store ground truth labels
-
-# Convert the list of predictions and labels to numpy arrays
-predictions = np.vstack(all_preds)
-labels = np.vstack(all_labels)
-
-optimal_thresholds = calculate_optimal_thresholds(probabilities, labels)
-
-# Filter and save correct data
-filter_and_save_correct_data(test_data_path=test_data_path, 
-                             predictions=predictions, 
-                             labels=labels, 
-                             optimal_thresholds=optimal_thresholds, 
-                             output_path=output_path)
-                             
-                    
-
-
-
-def filter_and_save_correct_data(test_data_path, predictions, labels, optimal_thresholds, output_path):
-    correct_predictions = []
-
-    # Iterate through each test record and check if the prediction is correct
-    with open(test_data_path, 'r') as infile, open(output_path, 'w') as outfile:
-        for idx, line in enumerate(infile):
-            # For each record, check if the prediction matches the ground truth
-            is_correct = check_if_correct(predictions[idx], labels[idx], optimal_thresholds)
-            if is_correct:
-                outfile.write(line)  # Save the correct record to the output file
-                correct_predictions.append(True)
-            else:
-                correct_predictions.append(False)
-
-    print(f"Number of correct predictions saved: {len(correct_predictions)}")
-
-def check_if_correct(prediction, label, optimal_thresholds):
-    # Apply thresholds to predictions
-    adjusted_prediction = (prediction > optimal_thresholds).astype(int)
-    adjusted_label = (label > 0.5).astype(int)  # You can use 0.5 as a default threshold for ground truth labels
-
-    # Compare prediction and label
-    return np.array_equal(adjusted_prediction, adjusted_label)
-
-def test_on_correct_data(output_path, model, device):
-    # Load the saved correct predictions data
-    with open(output_path, 'r') as f:
-        correct_data = [json.loads(line.strip()) for line in f]
-
-    # Assuming correct_data is now a list of dictionaries, each representing a record
-    all_preds = []
-    all_labels = []
-    
-    # Loop over the correct data records and perform inference
-    for record in correct_data:
-        # Convert the record to PyTorch tensors
-        x = torch.tensor(record['Nodes'], dtype=torch.float32).to(device)
-        edge_index = torch.tensor(record['edge_index'], dtype=torch.long).to(device)
-        edge_attr = torch.tensor(record['edge_attr'], dtype=torch.long).to(device)
-        y = torch.tensor(record['labels'], dtype=torch.float32).to(device)  # Assuming 'y' is the ground truth
-        
-        # Pass through the model
-        model.eval()
-        with torch.no_grad():
-            logits = model(x, edge_index, edge_attr)
-            probs = torch.sigmoid(logits)
-        
-        # Append predictions and labels
-        all_preds.append(probs.cpu().numpy())
-        all_labels.append(y.cpu().numpy())
-
-    # Convert the list of predictions and labels to numpy arrays
-    predictions = np.vstack(all_preds)
-    labels = np.vstack(all_labels)
-
-    # Now you can evaluate the predictions and calculate metrics
-    metrics = calculate_metrics(predictions, labels)
-    print(f"Metrics for correct data: {metrics}")
-
-model.load_state_dict(torch.load('saved_models/gnn_model_74ddab15-d608-4033-bb8f-b3eafecf8a57.pth'))
-preds, labels , probabilities= get_predictions(test_loader , model)
-test_data_path = 'MicroservicesTestset/handgenerated1.jsonl'  # Path to your test data
-output_path = 'correct_data.jsonl'  # Path where you want to save correct data
-model.eval()
-"""

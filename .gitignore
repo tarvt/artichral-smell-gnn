@@ -4,8 +4,9 @@
 #     https://www.atlassian.com/git/tutorials/saving-changes/gitignore
 
 # Node artifact files
-dataset/
 dataset_generator/
+dataset/nosmell_prompt.txt
+dataset/not_llm
 env/
 MicroservicesDataset/
 MicroservicesTestset/

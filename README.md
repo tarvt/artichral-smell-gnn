@@ -2,11 +2,9 @@
 
 ## Table of Contents
 
-1. [Abstract](#abstract)
+1. [Project Overview](#project-overview)
 
-2. [Project Overview](#project-overview)
-
-3. [Folders Structure](#folders-structure)
+2. [Folders Structure](#folders-structure)
 
    - [Dataset](#dataset)
 
@@ -14,27 +12,11 @@
 
    - [Simulator](#simulator)
 
-4. [Installation](#installation)
+3. [Installation](#installation)
 
-5. [Usage](#usage)
+4. [Usage](#usage)
 
-6. [Contributions](#contributions)
-
-7. [License](#license)
-
-8. [Acknowledgments](#acknowledgments)
-
-9. [Contact Information](#contact-information)
-
-## Abstract
-
-Software systems must continuously evolve to meet new business needs. Today, the internet requires more flexible, scalable, and understandable software architecture. As a result, many companies and organizations have begun the process of migrating from monolithic architecture to more suitable architectures that can respond to current market demands. Microservices are small applications with a single responsibility that can be deployed, scaled, and tested independently. There are many advantages to using microservices, which is why they have recently become a popular topic.
-
-However, their architecture is susceptible to inadequate solutions due to various factors such as time constraints, uncertainty, miscommunication, and increasing complexity of software systems. Such factors may lead to signs of bad architecture, and there is limited research on this issue. Identifying these architectural signs in microservices is important because they help in identifying potential design problems that can impact the overall quality and performance of the system. Early detection and resolution can make the system more maintainable and scalable.
-
-To facilitate the identification of bad architectural signs in microservices, more empirical research needs to be conducted, and automated tools should be made available to developers to make this process more reliable and effective. However, there is a lack of public repositories that share patterns and practices of microservices in open-source projects. Identifying signs of bad microservice architecture is an issue that has received less attention. Therefore, the main goal of this project is to create a tool for the automatic detection of these signs in microservice architecture.
-
-In this research effort, our primary objective is to develop a method for detecting bad signs in microservices using neural networks. In the context of detecting bad microservice signs, graph neural networks provide a powerful framework for analyzing interdependencies and interaction patterns in microservice architectures, effectively capturing complex relationships between entities. The results of this research indicate that, while similar tools provide comprehensive analyses using proven algorithms like depth-first search, they may not scale as well as newer techniques such as neural networks. Neural networks represent a promising alternative, especially for dynamic and large-scale microservice architectures, by optimizing computational resources.
+5. [Contact Information](#contact-information)
 
 ## Project Overview
 
@@ -87,3 +69,86 @@ This project focuses on the automatic detection of architectural anti-patterns i
    git clone https://github.com/tarvt/artichral-smell-gnn.git
 
    ```
+
+# 5. Usage
+
+## Setup
+
+First, ensure that you have Python 3.8 or later installed, along with PyTorch and PyTorch Geometric. Install the necessary packages using:
+
+```bash
+pip install torch torchvision torch-geometric
+
+```
+
+## Running the Model
+
+To run the model on your data, follow these steps:
+
+1. **Prepare Your Data:** Ensure your data is formatted correctly, according to the model's input requirements.
+
+2. **Load and Run the Model:** Use the provided script to load your model and run it on the data.
+
+## Test Model
+
+### Overview
+
+This section explains how to use the `test_model` directory to test the GraphSAGENet model with predefined or custom test data. The directory includes a Python script (`load_model_test.py`) and a sample data file (`test_data.json`) to help you quickly evaluate the model's performance on detecting architectural anti-patterns in microservices.
+
+### Requirements
+
+- Python 3.8 or later
+
+- PyTorch 1.7 or later
+
+- PyTorch Geometric
+
+Ensure all dependencies are installed using:
+
+```bash
+
+pip install torch torchvision torch-geometric
+```
+
+### Files in the Test Model Directory
+
+- **load_model_test.py:** The main Python script for loading the model and running the tests.
+
+- **test_data.json:** A JSON file containing sample test data formatted to match the expected input schema.
+
+### Steps to Test the Model
+
+1. **Navigate to the Test Model Directory:** Change your current working directory to `test_model` where the test script and data are located:
+
+   ```bash
+
+   cd test_model
+   ```
+
+### Review the Test Data
+
+2. Open the `test_data.json` file to view the test data structure. You can modify this file to include your own test cases following the same format:
+
+```json
+
+{
+
+  "Nodes": [[feature1, feature2, ...], ...],
+
+  "edge_index": [[source1, source2, ...], [target1, target2, ...]],
+
+  "edge_attr": [[attr1, attr2, ...], ...]
+
+}
+```
+
+3. Execute the `load_model_test.py` script to load the model and test it on the data provided in `test_data.json`:
+
+```bash
+
+python load_model_test.py
+```
+
+### Interpret the Results
+
+4. The script will output the detection results for each node.

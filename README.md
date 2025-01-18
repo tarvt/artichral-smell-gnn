@@ -6,11 +6,11 @@
 
 2. [Folders Structure](#folders-structure)
 
-   - [Dataset](#dataset)
+   - [Dataset_Generation](#Dataset_Generation)
 
-   - [Models](#models)
+   - [Train](#Train)
 
-   - [Simulator](#simulator)
+   - [Simulator](#Simulator)
 
 3. [Installation](#installation)
 
@@ -26,51 +26,71 @@ This project focuses on the automatic detection of architectural anti-patterns i
 
 ### Dataset
 
-- **Description**: This folder includes scripts and prompts used to generate microservice graphs using a large language model (LLM), specifically ChatGPT. The dataset serves as the training ground for our GNN models.
+- **Description**: This folder contains the training and validation datasets along with the classes required to preprocess them for training.
 
 - **Contents**:
 
-  - Graph generation scripts
+  - Training and validation datasets
 
-  - Sample microservice graphs
-
-  - Documentation on dataset generation
-
-### Models
-
-- **Description**: Contains the implementations of various Graph Neural Network models that learn from the generated dataset.
-
-- **Contents**:
-
-  - GNN architecture implementations
-
-  - Training scripts
-
-  - Model evaluation metrics and results
+  - Preprocessing classes for training
 
 ### Simulator
 
-- **Description**: This folder contains simulated code for other tools to compare the performance and results of our GNN model against conventional techniques.
+- **Description**: This folder contains simulated code for MSNOSE and Arcan-Aroma.
 
 - **Contents**:
+  - Simulated code for MSNOSE and Arcan-Aroma
 
-  - Simulation scripts
+### Dataset_Generation
 
-  - Benchmarking against existing tools
+- **Description**: Contains the LLM prompts used to create graph datasets and the code that utilizes OpenAI to generate them.
+- **Contents**:
 
-  - Documentation for usage
+  - LLM prompts for graph dataset creation
+  - Code for using OpenAI to generate datasets
+
+### Train
+
+- **Description**: This folder includes subfolders for each GNN model we used; you can simply run any of them to train the model.
+- **Contents**:
+  - Subfolders for each GNN model
+  - Training scripts per model
+
+### Test_Loader
+
+- **Description**: A folder that loads the final model, allowing you to test it using your own data.
+- **Contents**:
+
+  - Final model loading scripts
+  - Testing scripts for custom datasets
 
 ## Installation
 
-1. Clone the repository:
+1.  Clone the repository:
 
-   ```bash
+    ```bash
 
-   git clone https://github.com/tarvt/artichral-smell-gnn.git
+    git clone https://github.com/tarvt/artichral-smell-gnn.git
 
-   ```
+    ```
 
-# 5. Usage
+2.  Set Up the Python Environment and Install Dependencies
+
+3.  Training the Model
+
+    ```bash
+
+    cd train/graphsage
+     python train_gnn.py
+
+    ```
+
+    The script will automatically:
+
+        - Load the data using the MicroservicesDataset class defined in dataset.py.
+        - Train the model using the parameters defined in the script.
+
+# Usage
 
 ## Setup
 
@@ -98,12 +118,9 @@ This section explains how to use the `test_model` directory to test the GraphSAG
 ### Requirements
 
 - Python 3.8 or later
-
 - PyTorch 1.7 or later
-
 - PyTorch Geometric
-
-Ensure all dependencies are installed using:
+  Ensure all dependencies are installed using:
 
 ```bash
 

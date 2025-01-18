@@ -133,35 +133,3 @@ def detect_inappropriate_service_intimacy(nodes, edge_index):
     return json.dumps(intimacy_issues, indent=4)
 
 
-Nodes= [
-    [1, 0, 0, 0, 1, 5, 0, 0, 0, 0],  
-    [0, 1, 0, 0, 0, 2, 0, 0, 0, 0],  
-    [0, 0, 1, 0, 0, 1, 0, 0, 0, 0]   
-  ]
-edge_index= [
-    [0, 1, 1],  
-    [1, 2, 0]   
-  ]
-edge_attr= [
-    [10, 1000, 2000],  
-    [15, 1500, 2500], 
-    [5, 500, 1000]    
-  ]
-labels= [
-    [0, 0, 0, 0],  
-    [0, 0, 1, 0],  
-    [0, 0, 0, 0]   
-  ]
-
-# Example usage
-cyclic_dependency_service = CyclicDependencyService(edge_index)
-print("Contains cyclic dependency:", cyclic_dependency_service.is_cyclic())
-
-esb_service = ESBService(edge_index)
-esb_context = esb_service.get_esb_context()
-print(esb_context)
-
-print(detect_greedy_microservices(Nodes))
-
-
-print(detect_inappropriate_service_intimacy(Nodes, edge_index))

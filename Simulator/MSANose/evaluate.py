@@ -3,7 +3,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import json
 from collections import Counter
 import numpy as np
-test_path = 'MicroservicesDataset/test.jsonl'
+import matplotlib.pyplot as plt
+import time
+test_path = 'MicroservicesTestset/handgenerated1.jsonl'
 
 class CyclicDependencyService:
     def __init__(self, edge_index):
@@ -291,6 +293,50 @@ def main():
     print('ESB Service Metrics:')
     print(metrics_ESB )
 
+# Function to calculate the time taken for each test case
+def calculate_testing_speed(test_cases_range):
+    times = []
+
+    for num_test_cases in test_cases_range:
+        # Simulate data loading
+        data = load_data(test_path)[:num_test_cases]
+        
+        # Measure time taken for all evaluations
+        start_time = time.time()
+
+        # Evaluate Cyclic Dependency
+        cyclic_results, cyclic_actuals = evaluate_cyclic_dependency(data)
+        
+        # Evaluate other services
+        metrics_intimacy = evaluate_service_intimacy(data)
+        metrics_greedy = evaluate_service_gready(data)
+        metrics_ESB = evaluate_service_ESB(data)
+        
+        end_time = time.time()
+        
+        # Calculate time taken for the current number of test cases
+        elapsed_time = end_time - start_time
+        times.append(elapsed_time)
+        
+    return times
+
+# Function to plot the speed of testing as the number of test cases increases
+def plot_testing_speed():
+    test_cases_range = np.arange(0, 1001, 50)  # Test cases range from 0 to 1000 with step 50
+    times = calculate_testing_speed(test_cases_range)
+    
+    plt.figure(figsize=(10, 6))
+    plt.plot(test_cases_range, times, marker='o', color='b', label="Testing Time")
+    plt.xlabel("Number of Test Cases")
+    plt.ylabel("Time (seconds)")
+    plt.title("Speed of Testing vs. Number of Test Cases")
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+# Run the plotting function
 
 if __name__ == '__main__':
     main()
+    #plot_testing_speed()
+

@@ -30,7 +30,7 @@ This project focuses on the automatic detection of architectural anti-patterns i
 
 - **Contents**:
 
-  - Training and validation datasets
+  - Training and validation datasets (Download from [Google Drive](https://drive.google.com/file/d/1YkFwFoly6AS3H4_omEGC5tBNDMxXBRSV/view?usp=sharing) unzip the dataset to the Dataset folder.)
 
   - Preprocessing classes for training
 
@@ -74,9 +74,11 @@ This project focuses on the automatic detection of architectural anti-patterns i
 
     ```
 
-2.  Set Up the Python Environment and Install Dependencies
+2.  Download the dataset from [Google Drive](https://drive.google.com/file/d/1YkFwFoly6AS3H4_omEGC5tBNDMxXBRSV/view?usp=sharing) unzip the dataset to the Dataset folder.
 
-3.  Training the Model
+3.  Set Up the Python Environment and Install Dependencies
+
+4.  Training the Model
 
     ```bash
 
